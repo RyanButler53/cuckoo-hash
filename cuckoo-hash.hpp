@@ -48,9 +48,9 @@ class CuckooHash
     size_t getHash2(size_t hash1) const;
     void rehash(size_t numBuckets);
     void insert(const key_t& key, const value_t& value, bool updateValues);
+    double loadFactor() const;
 
-
-  public:
+public:
     CuckooHash();
     CuckooHash(double epsilon, float downsizeThresh);
     ~CuckooHash();

@@ -56,9 +56,14 @@ size_t CuckooHash<key_t, value_t>::getHash2(size_t hash1) const{
     return  hash2_(key_str);
 }
 
+template<typename key_t, typename value_t>
+double CuckooHash<key_t, value_t>::loadFactor() const{
+    return double(size_) / (2 * numBuckets_);
+}
+
 template <typename key_t, typename value_t>
 void CuckooHash<key_t, value_t>::rehash(size_t numBuckets){
-    cout << "Rehashing all " << size_ << " keys to " << 2 * numBuckets << endl;
+    // cout << "Rehashing all " << size_ << " keys to " << 2 * numBuckets << endl;
     vector<Item> allItems;
     for (Item *item = table1_; item < table1_ + numBuckets_; ++item)
     {
@@ -128,14 +133,13 @@ void CuckooHash<key_t, value_t>::insert(const key_t& key, const value_t& value, 
                 table2_[h2 % numBuckets_] = newItem;
                 if(updateValues){
                     ++size_;
-                    maxLoop_ = size_t(ceil(log(size_) / log(1 + epsilon_))) + 1;
+                    maxLoop_ = 3*size_t(ceil(log(size_) / log(1 + epsilon_))) + 1;
                 }
                 return;
             } else {
                 std::swap(newItem, table2_[h2 % numBuckets_]);
             }
         }
-        cout << "Reached " << maxLoop_ << " loops trying to insert " << key << endl;
         // Rehash and insert the new item.
         rehash(numBuckets_ * 2);
         insert(newItem.key_, newItem.value_, true);
@@ -165,7 +169,7 @@ void CuckooHash<key_t, value_t>::remove(const key_t& key){
         }
         // Find the new maximum loop size
         --size_;
-        maxLoop_ = size_t(ceil(log(size_) / log(1 + epsilon_)));
+        maxLoop_ = 3*size_t(ceil(log(size_) / log(1 + epsilon_)));
 
         // Check if resizing is needed. Critical threshold is (1+e)n/4
         cout << size_ / (2.0 * numBuckets_) << endl;
@@ -188,13 +192,8 @@ value_t& CuckooHash<key_t, value_t>::lookup(const key_t& key)  const {
     } else {
         size_t hash2 = getHash2(hash1);
         Item &item2 = table2_[hash2 % numBuckets_];
-        if (item2.valid_ and item2.key_ == key){
-            return item2.value_;
-        }
-        else {
-            cout << "Item " << key << " not found. Call exists first" << endl;
-            exit(1);
-        }
+        // If the key is not in the table, this is wrong!
+        return item2.value_;
     }
 }
 
