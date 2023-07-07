@@ -63,7 +63,6 @@ double CuckooHash<key_t, value_t>::loadFactor() const{
 
 template <typename key_t, typename value_t>
 void CuckooHash<key_t, value_t>::rehash(size_t numBuckets){
-    // cout << "Rehashing all " << size_ << " keys to " << 2 * numBuckets << endl;
     vector<Item> allItems;
     for (Item *item = table1_; item < table1_ + numBuckets_; ++item)
     {
@@ -172,8 +171,7 @@ void CuckooHash<key_t, value_t>::remove(const key_t& key){
         maxLoop_ = 3*size_t(ceil(log(size_) / log(1 + epsilon_)));
 
         // Check if resizing is needed. Critical threshold is (1+e)n/4
-        cout << size_ / (2.0 * numBuckets_) << endl;
-        if (downsizeThresh_ > size_ / (2.0 * numBuckets_))
+        if (downsizeThresh_ > loadFactor())
         {
             rehash(numBuckets_ / 2);
         }
