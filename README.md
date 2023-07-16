@@ -21,6 +21,8 @@ There are 2 constructors for the cuckoo hash table:
 
 `void remove(key):` Removes a key-value pair from the hash table
 
+`type operator[]:` looks up a value in the table. If the value already exists, supports reassignment. 
+
 ## Asymtotic Runtimes (n items in table)
 
 `exists(key)`: $\Theta(1)$ worst case. 

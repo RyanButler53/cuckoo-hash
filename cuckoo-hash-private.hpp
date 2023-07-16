@@ -4,8 +4,6 @@
 
 using namespace std;
 
-// Find a way to make this 1. 
-#define INTIAL_BUCKETS 4;
 
 template <typename key_t, typename value_t>
 CuckooHash<key_t, value_t>::CuckooHash():
@@ -196,7 +194,7 @@ value_t& CuckooHash<key_t, value_t>::lookup(const key_t& key)  const {
 }
 
 template <typename key_t, typename value_t>
-value_t& CuckooHash<key_t, value_t>::operator[](const key_t& key) const {
+value_t& CuckooHash<key_t, value_t>::operator[](const key_t& key) {
     return lookup(key);
 }
 

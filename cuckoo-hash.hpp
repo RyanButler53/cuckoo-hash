@@ -61,7 +61,7 @@ public:
     void remove(const key_t& key); 
     value_t &lookup(const key_t& key) const; 
 
-    value_t &operator[](const key_t& key) const;
+    value_t &operator[](const key_t& key);
     void printToStream(std::ostream &os) const;
 };
 
