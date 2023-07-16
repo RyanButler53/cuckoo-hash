@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <string>
 #include <cmath>
+#include <vector>
 
 #ifndef CUCKOO_HASH_HPP_INCLUDED
 #define CUCKOO_HASH_HPP_INCLUDED
@@ -65,9 +66,55 @@ public:
     void printToStream(std::ostream &os) const;
 };
 
+
+template<typename T>
+class CuckooSet
+{
+private:
+
+    std::vector<bool> valid1_;
+    std::vector<bool> valid2_;
+    double epsilon_;
+    size_t size_;
+    T* table1_;
+    T* table2_;
+    size_t maxLoop_; // set to 3 log_1+e(n)
+    size_t numBuckets_;
+    std::hash<T> hash1_;
+    std::hash<std::string> hash2_;
+    float downsizeThresh_;
+
+    size_t getHash1(const T& key) const;
+    size_t getHash2(size_t hash1) const;
+    void rehash(size_t numBuckets);
+    void insert(const T& key, bool updateValues);
+    double loadFactor() const;
+
+public:
+    CuckooSet();
+    CuckooSet(double epsilon, float downsizeThresh);
+    ~CuckooSet();
+    CuckooSet(const CuckooSet&other) = delete;
+
+    // Capacity
+    bool empty();
+    size_t size();
+
+    void insert(const T& key);
+    void erase(const T& key); 
+
+    bool contains(const T &key) const;
+    void clear();
+
+    void printToStream(std::ostream &os) const;
+};
+
+
 template<typename key_t,typename value_t>
 std::ostream &operator<<(std::ostream& os, const CuckooHash<key_t, value_t> &ch );
 
+template<typename T>
+std::ostream &operator<<(std::ostream& os, const CuckooSet<T> &ch );
 #include "cuckoo-hash-private.hpp"
 
 #endif // CUCKOO_HASH_HPP_INCLUDED

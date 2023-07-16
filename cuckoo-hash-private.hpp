@@ -1,9 +1,11 @@
 #include "cuckoo-hash.hpp"
 #include <iostream>
-#include <vector>
 
 using namespace std;
 
+/*******************
+ * Cuckoo Hash Map *
+ *******************/
 
 template <typename key_t, typename value_t>
 CuckooHash<key_t, value_t>::CuckooHash():
@@ -232,5 +234,231 @@ key_{key}, value_{value},valid_{true}{}
 template <typename key_t, typename value_t>
 ostream& operator<<(ostream& os, const CuckooHash<key_t, value_t>& ch){
     ch.printToStream(os);
+    return os;
+}
+
+/*******************
+ * Cuckoo Hash Map *
+ *******************/
+
+template <typename T>
+CuckooSet<T>::CuckooSet():valid1_{false, false}, valid2_{false, false},
+epsilon_{0.4}, size_{0}, table1_{new T[2]}, table2_{new T[2]}, maxLoop_{1},
+numBuckets_{2}, downsizeThresh_{0.2}{
+
+}
+
+template <typename T>
+CuckooSet<T>::CuckooSet(double epsilon, float downsizeThresh):valid1_{false, false},
+valid2_{false, false},
+epsilon_{epsilon}, size_{0}, table1_{new T[2]}, table2_{new T[2]}, maxLoop_{1},
+numBuckets_{2}, downsizeThresh_{downsizeThresh}{
+
+}
+
+template <typename T>
+CuckooSet<T>::~CuckooSet(){
+    delete[] table1_;
+    delete[] table2_;
+}
+
+template <typename T>
+size_t CuckooSet<T>::getHash1(const T& key) const {
+    return hash1_(key);
+}
+
+template <typename T>
+size_t CuckooSet<T>::getHash2(size_t hash1) const{
+    string key_str;
+    for (size_t byte = 0; byte < 8; ++byte)
+    {
+        unsigned char c = hash1 & 255;
+        key_str += c;
+        hash1 >>= 8;
+    }
+    return  hash2_(key_str);
+}
+
+template <typename T>
+double CuckooSet<T>::loadFactor() const {
+    return double(size_) / (2 * numBuckets_);
+}
+
+template <typename T>
+void CuckooSet<T>::rehash(size_t numBuckets){
+    vector<T> allKeys;
+    for (size_t i = 0; i < numBuckets_;++i)
+    {
+        if (valid1_[i]){
+            allKeys.push_back(table1_[i]);
+        }
+    }
+    for (size_t i = 0; i < numBuckets_;++i)
+    {
+        if (valid2_[i]){
+            allKeys.push_back(table2_[i]);
+        }
+    }
+
+    // Clear old tables
+    delete[] table1_;
+    delete[] table2_;
+
+    // Rehash into new table;
+    numBuckets_ = numBuckets;
+    table1_ = new T[numBuckets_];
+    table2_ = new T[numBuckets_];
+    valid1_.resize(numBuckets_);
+    valid2_.resize(numBuckets_);
+    std::fill(begin(valid1_), end(valid1_), false);
+    std::fill(begin(valid2_), end(valid2_), false);
+
+    // Re-insert all items
+    for (const T& key : allKeys)
+    {
+        insert(key, false);
+    }
+}
+
+template<typename T>
+void CuckooSet<T>::insert(const T&key, bool updateValues){
+    T keyCopy = key;
+    T newKey = key;
+    cout << "contains" << contains(key) << endl;
+    if (contains(key))
+    {
+        return;
+    }
+    else
+    {
+        for (size_t loops = 0; loops < maxLoop_; ++loops){
+            size_t h1 = getHash1(newKey);
+            // Empty spot, insert and finish
+            if (!valid1_[h1%numBuckets_]){
+                table1_[h1%numBuckets_] = newKey;
+                valid1_[h1 % numBuckets_] = true;
+                if (updateValues)
+                {
+                    ++size_;
+                    maxLoop_ = 3*size_t(ceil(log(size_) / log(1 + epsilon_))) + 1;
+                }
+                return;
+            } else {
+                std::swap(newKey, table1_[h1 % numBuckets_]);
+            }
+            size_t h2 = getHash2(getHash1(newKey)); // This is slow!
+            if (!valid2_[h2 % numBuckets_]){
+                table2_[h2 % numBuckets_] = newKey;
+                valid2_[h2 % numBuckets_] = true;
+                if(updateValues){
+                    ++size_;
+                    maxLoop_ = 3*size_t(ceil(log(size_) / log(1 + epsilon_))) + 1;
+                }
+                return;
+            } else {
+                std::swap(newKey, table2_[h2 % numBuckets_]);
+            }
+        }
+        // Rehash and insert the new item.
+        cout << "Rehashing with key" << keyCopy << endl;
+        rehash(numBuckets_ * 2);
+        insert(newKey, true);
+    }
+    return;
+}
+
+template<typename T>
+bool CuckooSet<T>::empty(){
+    return size_ == 0;
+}
+
+template <typename T>
+size_t CuckooSet<T>::size() {
+    return size_ == 0;
+}
+
+template <typename T>
+void CuckooSet<T>::insert(const T &key){
+    insert(key, true);
+}
+
+template <typename T>
+void CuckooSet<T>::erase(const T& key){
+    if (exists(key)){
+        size_t hash1 = getHash1(key);
+        size_t table1Ind = hash1%numBuckets_;
+        if (valid1_[table1Ind] and table1_[table1Ind] == key) [[likely]]{
+            valid1_[table1Ind] = false;
+        } else [[unlikely]]{
+            // Only compute hash2 if not found in hash1. Hashing is expensive
+            size_t hash2 = getHash2(hash1);
+            size_t table2Ind = hash2 % numBuckets_;
+            if (valid2_[table2Ind] and table2_[table2Ind] == key)
+            {
+                valid2_[table2Ind] = false;
+            }
+        }
+        // Find the new maximum loop size
+        --size_;
+        maxLoop_ = 3*size_t(ceil(log(size_) / log(1 + epsilon_)));
+
+        // Check if resizing is needed. Critical threshold is (1+e)n/4
+        if (downsizeThresh_ > loadFactor())
+        {
+            rehash(numBuckets_ / 2);
+        }
+    }
+    return;
+}
+
+template <typename T>
+bool CuckooSet<T>::contains(const T& key)const {
+    size_t hash1 = getHash1(key);
+    size_t ind1 = hash1 % numBuckets_;
+    if (valid1_[ind1] and table1_[ind1] == key) {
+        return true;
+    } else {
+        size_t hash2 = getHash2(hash1) % numBuckets_;
+        size_t ind2 = hash2 % numBuckets_;
+        return valid2_[ind2] and table2_[ind2] == key;
+    }
+}
+
+template<typename T>
+void CuckooSet<T>::clear(){
+    delete[] table1_;
+    delete[] table2_;
+    valid1_ = {false, false};
+    valid2_ = {false, false};
+    maxLoop_ = 1;
+    size_ = 0;
+}
+
+template <typename T>
+void CuckooSet<T>::printToStream(ostream &out) const{
+    out << "Table 1: [ ";
+    for (size_t i = 0; i < numBuckets_; ++i) {
+        if (valid1_[i]){
+            out << table1_[i] << ", ";
+        } else {
+            out << " ,";
+        }
+    }
+    out << "]\nTable 2: [ ";
+
+    for (size_t i = 0; i < numBuckets_; ++i)
+    {
+       if (valid1_[i]){
+            out << table1_[i] << ", ";
+        } else {
+            out << " ,";
+        }
+    }
+    out << "]\n Epsilon: " << epsilon_ << " Num Buckets: " << numBuckets_ << " Size: " << size_ << " Max Loops: " << maxLoop_;
+}
+
+template <typename T>
+ostream& operator<<(ostream& os, const CuckooSet<T>& cs){
+    cs.printToStream(os);
     return os;
 }
