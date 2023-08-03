@@ -1,5 +1,5 @@
 CXX = clang++
-CXXFLAGS = -std=c++2a -g -Wall -pedantic
+CXXFLAGS = -std=c++2a -g -Wall -pedantic -O3
 TARGET = cuckoo-test
 
 all: $(TARGET)

@@ -8,7 +8,7 @@ using namespace std;
  *******************/
 
 template <typename key_t, typename value_t>
-CuckooHash<key_t, value_t>::CuckooHash():
+CuckooHashMap<key_t, value_t>::CuckooHashMap():
     table1_{new Item[2]}, 
     table2_{new Item[2]}, 
     epsilon_{0.4}, // ??
@@ -21,7 +21,7 @@ CuckooHash<key_t, value_t>::CuckooHash():
     }
 
 template<typename key_t, typename value_t>
-CuckooHash<key_t, value_t>::CuckooHash(double epsilon, float downsizeThresh):
+CuckooHashMap<key_t, value_t>::CuckooHashMap(double epsilon, float downsizeThresh):
     table1_{new Item[2]}, 
     table2_{new Item[2]}, 
     epsilon_{epsilon}, // ??
@@ -34,18 +34,18 @@ CuckooHash<key_t, value_t>::CuckooHash(double epsilon, float downsizeThresh):
     }
 
 template<typename key_t, typename value_t>
-CuckooHash<key_t, value_t>::~CuckooHash(){
+CuckooHashMap<key_t, value_t>::~CuckooHashMap(){
     delete[] table1_;
     delete[] table2_;
 }
 
 template<typename key_t, typename value_t>
-size_t CuckooHash<key_t, value_t>::getHash1(const key_t& key) const {
+size_t CuckooHashMap<key_t, value_t>::getHash1(const key_t& key) const {
     return hash1_(key);
 }
 
 template<typename key_t, typename value_t>
-size_t CuckooHash<key_t, value_t>::getHash2(size_t hash1) const{
+size_t CuckooHashMap<key_t, value_t>::getHash2(size_t hash1) const {
     string key_str;
     for (size_t byte = 0; byte < 8; ++byte)
     {
@@ -57,12 +57,33 @@ size_t CuckooHash<key_t, value_t>::getHash2(size_t hash1) const{
 }
 
 template<typename key_t, typename value_t>
-double CuckooHash<key_t, value_t>::loadFactor() const{
+double CuckooHashMap<key_t, value_t>::loadFactor() const{
     return double(size_) / (2 * numBuckets_);
 }
 
+template<typename key_t, typename value_t>
+bool CuckooHashMap<key_t, value_t>::empty() const{
+    return size_ == 0;
+}
+
+template<typename key_t, typename value_t>
+size_t CuckooHashMap<key_t, value_t>::size() const{
+    return size_;
+}
+
 template <typename key_t, typename value_t>
-void CuckooHash<key_t, value_t>::rehash(size_t numBuckets){
+void CuckooHashMap<key_t, value_t>::clear(){
+    delete[] table1_;
+    delete[] table2_;
+    table1_ = new Item[2];
+    table2_ = new Item[2];
+    numBuckets_ = 2;
+    maxLoop_ = 1;
+    size_ = 0;
+}
+
+template <typename key_t, typename value_t>
+void CuckooHashMap<key_t, value_t>::rehash(size_t numBuckets){
     vector<Item> allItems;
     for (Item *item = table1_; item < table1_ + numBuckets_; ++item)
     {
@@ -90,7 +111,7 @@ void CuckooHash<key_t, value_t>::rehash(size_t numBuckets){
 }
 
 template <typename key_t, typename value_t>
-bool CuckooHash<key_t, value_t>::exists(const key_t& key) const {
+bool CuckooHashMap<key_t, value_t>::contains(const key_t& key) const {
     size_t hash1 = getHash1(key);
     Item &item1 = table1_[hash1 % numBuckets_];
     if (item1.valid_ and item1.key_ == key){
@@ -105,12 +126,12 @@ bool CuckooHash<key_t, value_t>::exists(const key_t& key) const {
 }
 
 template <typename key_t, typename value_t>
-void CuckooHash<key_t, value_t>::insert(const key_t& key, const value_t& value, bool updateValues){
+void CuckooHashMap<key_t, value_t>::insert(const key_t& key, const value_t& value, bool updateValues){
     key_t keyCopy = key;
     value_t valueCopy = value;
 
     Item newItem = Item(keyCopy, valueCopy); // Copy constructor is needed. 
-    if (exists(key)) {
+    if (contains(key)) {
         return;
     } else {
         for (size_t loops = 0; loops < maxLoop_; ++loops){
@@ -147,13 +168,13 @@ void CuckooHash<key_t, value_t>::insert(const key_t& key, const value_t& value, 
 }
 
 template <typename key_t, typename value_t>
-void CuckooHash<key_t, value_t>::insert(const key_t& key, const value_t& value){
+void CuckooHashMap<key_t, value_t>::insert(const key_t& key, const value_t& value){
     insert(key, value, true);
 }
 
 template <typename key_t, typename value_t>
-void CuckooHash<key_t, value_t>::remove(const key_t& key){
-    if (exists(key)){
+void CuckooHashMap<key_t, value_t>::erase(const key_t& key){
+    if (contains(key)){
         size_t hash1 = getHash1(key);
         Item &item1 = table1_[hash1 % numBuckets_];
         if (item1.valid_ and item1.key_ == key) [[likely]]{
@@ -180,7 +201,7 @@ void CuckooHash<key_t, value_t>::remove(const key_t& key){
 }
 
 template <typename key_t, typename value_t>
-value_t& CuckooHash<key_t, value_t>::lookup(const key_t& key)  const {
+value_t& CuckooHashMap<key_t, value_t>::lookup(const key_t& key)  const {
     // Assume that exists has been called
     size_t hash1 = getHash1(key);
     Item& item1 = table1_[hash1 % numBuckets_];
@@ -196,12 +217,12 @@ value_t& CuckooHash<key_t, value_t>::lookup(const key_t& key)  const {
 }
 
 template <typename key_t, typename value_t>
-value_t& CuckooHash<key_t, value_t>::operator[](const key_t& key) {
+value_t& CuckooHashMap<key_t, value_t>::operator[](const key_t& key) {
     return lookup(key);
 }
 
 template <typename key_t, typename value_t>
-void CuckooHash<key_t, value_t>::printToStream(ostream& out) const {
+void CuckooHashMap<key_t, value_t>::printToStream(ostream& out) const {
     out << "Table 1: [ ";
     for (Item *item = table1_; item < table1_ + numBuckets_; ++item)
     {
@@ -225,50 +246,122 @@ void CuckooHash<key_t, value_t>::printToStream(ostream& out) const {
 }
 
 template <typename key_t, typename value_t>
-CuckooHash<key_t, value_t>::Item::Item():valid_{false}{}
+CuckooHashMap<key_t, value_t>::Item::Item():valid_{false}{
+}
 
 template <typename key_t, typename value_t>
-CuckooHash<key_t, value_t>::Item::Item(key_t& key, value_t& value):
+CuckooHashMap<key_t, value_t>::Item::Item(key_t& key, value_t& value):
 key_{key}, value_{value},valid_{true}{}
 
 template <typename key_t, typename value_t>
-ostream& operator<<(ostream& os, const CuckooHash<key_t, value_t>& ch){
+ostream& operator<<(ostream& os, const CuckooHashMap<key_t, value_t>& ch){
     ch.printToStream(os);
     return os;
 }
 
+// Iterator Functions
+
+template <typename key_t, typename value_t>
+typename CuckooHashMap<key_t, value_t>::const_iterator CuckooHashMap<key_t, value_t>::begin() const {
+    return const_iterator(0, numBuckets_, table1_, table2_);
+}
+
+template <typename key_t, typename value_t>
+typename CuckooHashMap<key_t, value_t>::const_iterator CuckooHashMap<key_t, value_t>::end() const {
+    return const_iterator(2 * numBuckets_, numBuckets_, table1_, table2_);
+}
+
+template <typename key_t, typename value_t>
+CuckooHashMap<key_t, value_t>::const_iterator::const_iterator(size_t idx, size_t tableSize, Item* t1, Item* t2):
+    t1_{t1}, t2_{t2}, idx_{idx}, tableSize_{tableSize}{
+    iterateTable();
+}
+
+template <typename key_t, typename value_t>
+typename CuckooHashMap<key_t, value_t>::const_iterator& CuckooHashMap<key_t, value_t>::const_iterator::operator++() {
+    ++idx_;
+    iterateTable();
+    return *this;
+}
+
+template <typename key_t,typename value_t>
+void CuckooHashMap<key_t, value_t>::const_iterator::iterateTable(){
+    // First Table
+    while (idx_ < tableSize_) {
+        if (t1_[idx_].valid_){
+            return;
+        } else {
+            ++idx_;
+        }
+    }
+    // Second Table
+    while (idx_ < 2 * tableSize_){
+        if (t2_[idx_-tableSize_].valid_){
+            return;
+        } else {
+            ++idx_;
+        }
+    }
+}
+
+template <typename key_t, typename value_t>
+typename CuckooHashMap<key_t, value_t>::const_iterator::value_type CuckooHashMap<key_t, value_t>::const_iterator::operator*() const{
+    if (idx_ < tableSize_) {
+        return {t1_[idx_].key_, t1_[idx_].value_};
+
+    } else {
+        return {t2_[idx_ - tableSize_].key_, t2_[idx_-tableSize_].value_};
+
+    }
+}
+
+template <typename key_t, typename value_t>
+bool CuckooHashMap<key_t, value_t>::const_iterator::operator==(const const_iterator& other) const {
+    return (idx_ == other.idx_) and (t1_ == other.t1_) and (t2_ == other.t2_);
+}
+
+template <typename key_t, typename value_t>
+bool CuckooHashMap<key_t, value_t>::const_iterator::operator!=(const const_iterator& other) const{
+    return !(*this == other);
+}
+
+template <typename key_t, typename value_t>
+typename CuckooHashMap<key_t, value_t>::const_iterator::pointer CuckooHashMap<key_t, value_t>::const_iterator::operator->() const{
+    return &(**this);
+}
+
 /*******************
- * Cuckoo Hash Map *
+ * Cuckoo Hash Set *
  *******************/
 
 template <typename T>
-CuckooSet<T>::CuckooSet():valid1_{false, false}, valid2_{false, false},
-epsilon_{0.4}, size_{0}, table1_{new T[2]}, table2_{new T[2]}, maxLoop_{1},
-numBuckets_{2}, downsizeThresh_{0.2}{
+CuckooHashSet<T>::CuckooHashSet():valid1_{false, false}, valid2_{false, false},
+    epsilon_{0.4}, size_{0}, table1_{new T[2]}, table2_{new T[2]}, maxLoop_{1},
+    numBuckets_{2}, downsizeThresh_{0.2}{
+    // Nothing here
+}
+
+template <typename T>
+CuckooHashSet<T>::CuckooHashSet(double epsilon, float downsizeThresh):
+    valid1_{false, false}, valid2_{false, false}, epsilon_{epsilon}, 
+    size_{0}, table1_{new T[2]}, table2_{new T[2]}, maxLoop_{1},
+    numBuckets_{2}, downsizeThresh_{downsizeThresh} {
 
 }
 
 template <typename T>
-CuckooSet<T>::CuckooSet(double epsilon, float downsizeThresh):valid1_{false, false},
-valid2_{false, false},
-epsilon_{epsilon}, size_{0}, table1_{new T[2]}, table2_{new T[2]}, maxLoop_{1},
-numBuckets_{2}, downsizeThresh_{downsizeThresh}{
-
-}
-
-template <typename T>
-CuckooSet<T>::~CuckooSet(){
+CuckooHashSet<T>::~CuckooHashSet(){
     delete[] table1_;
     delete[] table2_;
 }
 
 template <typename T>
-size_t CuckooSet<T>::getHash1(const T& key) const {
+size_t CuckooHashSet<T>::getHash1(const T& key) const {
     return hash1_(key);
 }
 
 template <typename T>
-size_t CuckooSet<T>::getHash2(size_t hash1) const{
+size_t CuckooHashSet<T>::getHash2(size_t hash1) const{
     string key_str;
     for (size_t byte = 0; byte < 8; ++byte)
     {
@@ -280,12 +373,12 @@ size_t CuckooSet<T>::getHash2(size_t hash1) const{
 }
 
 template <typename T>
-double CuckooSet<T>::loadFactor() const {
+double CuckooHashSet<T>::loadFactor() const {
     return double(size_) / (2 * numBuckets_);
 }
 
 template <typename T>
-void CuckooSet<T>::rehash(size_t numBuckets){
+void CuckooHashSet<T>::rehash(size_t numBuckets){
     vector<T> allKeys;
     for (size_t i = 0; i < numBuckets_;++i)
     {
@@ -310,8 +403,8 @@ void CuckooSet<T>::rehash(size_t numBuckets){
     table2_ = new T[numBuckets_];
     valid1_.resize(numBuckets_);
     valid2_.resize(numBuckets_);
-    std::fill(begin(valid1_), end(valid1_), false);
-    std::fill(begin(valid2_), end(valid2_), false);
+    std::fill(valid1_.begin(), valid1_.end(), false);
+    std::fill(valid2_.begin(), valid2_.end(), false);
 
     // Re-insert all items
     for (const T& key : allKeys)
@@ -321,10 +414,9 @@ void CuckooSet<T>::rehash(size_t numBuckets){
 }
 
 template<typename T>
-void CuckooSet<T>::insert(const T&key, bool updateValues){
+void CuckooHashSet<T>::insert(const T&key, bool updateValues){
     T keyCopy = key;
     T newKey = key;
-    cout << "contains" << contains(key) << endl;
     if (contains(key))
     {
         return;
@@ -360,7 +452,6 @@ void CuckooSet<T>::insert(const T&key, bool updateValues){
             }
         }
         // Rehash and insert the new item.
-        cout << "Rehashing with key" << keyCopy << endl;
         rehash(numBuckets_ * 2);
         insert(newKey, true);
     }
@@ -368,23 +459,23 @@ void CuckooSet<T>::insert(const T&key, bool updateValues){
 }
 
 template<typename T>
-bool CuckooSet<T>::empty(){
+bool CuckooHashSet<T>::empty() const {
     return size_ == 0;
 }
 
 template <typename T>
-size_t CuckooSet<T>::size() {
+size_t CuckooHashSet<T>::size() const {
     return size_ == 0;
 }
 
 template <typename T>
-void CuckooSet<T>::insert(const T &key){
+void CuckooHashSet<T>::insert(const T &key){
     insert(key, true);
 }
 
 template <typename T>
-void CuckooSet<T>::erase(const T& key){
-    if (exists(key)){
+void CuckooHashSet<T>::erase(const T& key){
+    if (contains(key)){
         size_t hash1 = getHash1(key);
         size_t table1Ind = hash1%numBuckets_;
         if (valid1_[table1Ind] and table1_[table1Ind] == key) [[likely]]{
@@ -412,7 +503,7 @@ void CuckooSet<T>::erase(const T& key){
 }
 
 template <typename T>
-bool CuckooSet<T>::contains(const T& key)const {
+bool CuckooHashSet<T>::contains(const T& key)const {
     size_t hash1 = getHash1(key);
     size_t ind1 = hash1 % numBuckets_;
     if (valid1_[ind1] and table1_[ind1] == key) {
@@ -425,17 +516,20 @@ bool CuckooSet<T>::contains(const T& key)const {
 }
 
 template<typename T>
-void CuckooSet<T>::clear(){
+void CuckooHashSet<T>::clear(){
     delete[] table1_;
     delete[] table2_;
+    table1_ = new T[2];
+    table2_ = new T[2];
     valid1_ = {false, false};
     valid2_ = {false, false};
+    numBuckets_ = 2;
     maxLoop_ = 1;
     size_ = 0;
 }
 
 template <typename T>
-void CuckooSet<T>::printToStream(ostream &out) const{
+void CuckooHashSet<T>::printToStream(ostream &out) const{
     out << "Table 1: [ ";
     for (size_t i = 0; i < numBuckets_; ++i) {
         if (valid1_[i]){
@@ -448,8 +542,8 @@ void CuckooSet<T>::printToStream(ostream &out) const{
 
     for (size_t i = 0; i < numBuckets_; ++i)
     {
-       if (valid1_[i]){
-            out << table1_[i] << ", ";
+       if (valid2_[i]){
+            out << table2_[i] << ", ";
         } else {
             out << " ,";
         }
@@ -458,7 +552,78 @@ void CuckooSet<T>::printToStream(ostream &out) const{
 }
 
 template <typename T>
-ostream& operator<<(ostream& os, const CuckooSet<T>& cs){
+typename CuckooHashSet<T>::const_iterator CuckooHashSet<T>::begin() const {
+    return const_iterator(0, table1_, table2_, valid1_, valid2_);
+}
+
+template <typename T>
+typename CuckooHashSet<T>::const_iterator CuckooHashSet<T>::end() const {
+    return const_iterator(2 * numBuckets_, table1_, table2_, valid1_, valid2_);
+}
+
+template <typename T>
+CuckooHashSet<T>::const_iterator::const_iterator(size_t idx, T* t1, T* t2, const vector<bool>& valid1, const vector<bool>& valid2):
+    v1_{valid1}, v2_{valid2},idx_{idx},t1_{t1}, t2_{t2}{
+    iterateTable();
+}
+
+template <typename T>
+typename CuckooHashSet<T>::const_iterator& CuckooHashSet<T>::const_iterator::operator++() {
+    ++idx_;
+    iterateTable();
+    return *this;
+}
+
+template <typename T>
+void CuckooHashSet<T>::const_iterator::iterateTable(){
+    // First Table
+    size_t tableSize = v1_.size(); // Table size is the size of the valid vec
+    while (idx_ < tableSize)
+    {
+        if (v1_[idx_]){
+            return;
+        } else {
+            ++idx_;
+        }
+    }
+    // Second Table
+    while (idx_ < 2 * tableSize){
+        if (v2_[idx_-tableSize]){
+            return;
+        } else {
+            ++idx_;
+        }
+    }
+}
+
+template <typename T>
+typename CuckooHashSet<T>::const_iterator::value_type CuckooHashSet<T>::const_iterator::operator*() const{
+    size_t tableSize = v2_.size();
+    if (idx_ < tableSize)
+    {
+        return t1_[idx_];
+    } else {
+        return t2_[idx_ - tableSize];
+    }
+}
+
+template <typename T>
+bool CuckooHashSet<T>::const_iterator::operator==(const const_iterator& other) const {
+    return (idx_ == other.idx_) and (t1_ == other.t1_) and (t2_ == other.t2_);
+}
+
+template <typename T>
+bool CuckooHashSet<T>::const_iterator::operator!=(const const_iterator& other) const{
+    return !(*this == other);
+}
+
+template <typename T>
+typename CuckooHashSet<T>::const_iterator::pointer CuckooHashSet<T>::const_iterator::operator->() const{
+    return &(**this);
+}
+
+template <typename T>
+ostream& operator<<(ostream& os, const CuckooHashSet<T>& cs){
     cs.printToStream(os);
     return os;
 }
